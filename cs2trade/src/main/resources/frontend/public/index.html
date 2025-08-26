@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CS2 Trade Tracker (HTML+JS)</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 32px; background: #fff; color: #111; }
+        .main-row { display: flex; gap: 32px; justify-content: stretch; align-items: flex-start; flex-wrap: wrap; }
+        .table-block { flex: 1 1 0; min-width: 600px; max-width: 900px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+        th, td { border: 1px solid #ccc; padding: 6px 12px; }
+        th { background: #f5f5f5; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        img.skin { border-radius: 4px; background: #f5f5f5; width: 96px; height: 96px; }
+        img.sticker { width: 48px; height: 48px; margin: 2px 2px 0 0; vertical-align: middle; background: #f5f5f5; border-radius: 4px; }
+        .form-row { margin-bottom: 12px; }
+        .profit-pos { color: #24e16f; font-weight: bold; }
+        .profit-neg { color: #ff3636; font-weight: bold; }
+        .skin-select, .sticker-select { min-width: 350px; }
+        .flex { display: flex; align-items: center; gap: 10px; }
+        .add-form, .edit-form {
+            margin-top: 20px;
+            padding: 16px;
+            background: #fff; /* заменили #f7f7f7 на #fff, как в edit-modal */
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+        button, select, input { font-size: 1em; }
+        .edit-btn { font-size: 0.9em; background: #ededed; border: 1px solid #bbb; border-radius: 4px; cursor: pointer; }
+        .total-profit { margin-bottom: 24px; font-size: 1.5em; font-weight: bold; }
+        .date-cell { font-size: 0.97em; }
+        .sticker-row { display: flex; gap: 2px; flex-wrap: wrap; }
+
+        @media (max-width:1400px) {
+            .table-block { min-width:300px; max-width:100vw; }
+            .main-row { flex-direction: column; gap: 10px; }
+        }
+
+        #edit-modal {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.12);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+<h1>CS2 Trade Tracker</h1>
+<div class="total-profit">Total Profit: <span id="total-profit">0.00</span></div>
+<div class="add-form">
+    <form id="trade-form">
+        <div class="form-row flex" style="flex-wrap:wrap; gap:20px;">
+            <label>Skin:
+                <input id="skin" list="skin-list" class="skin-select" required autocomplete="off">
+                <datalist id="skin-list"></datalist>
+            </label>
+            <label>Float: <input type="number" id="float" step="0.0001" min="0" max="1" required></label>
+            <label>Stickers:
+                <div id="stickers-row" class="sticker-row">
+                    <input type="text" list="skin-list" class="sticker-select" name="sticker0" placeholder="Sticker 1">
+                    <input type="text" list="skin-list" class="sticker-select" name="sticker1" placeholder="Sticker 2">
+                    <input type="text" list="skin-list" class="sticker-select" name="sticker2" placeholder="Sticker 3">
+                    <input type="text" list="skin-list" class="sticker-select" name="sticker3" placeholder="Sticker 4">
+                    <input type="text" list="skin-list" class="sticker-select" name="sticker4" placeholder="Sticker 5">
+                </div>
+            </label>
+            <label>Buy Date: <input type="date" id="buy-date" required></label>
+            <label>Sell Date: <input type="date" id="sell-date"></label>
+            <label>Quantity: <input type="number" id="quantity" step="1" min="1" required value="1"></label>
+            <label>Direction:
+                <select id="direction" required>
+                    <option value="Steam > External">Steam → External</option>
+                    <option value="External > Steam">External → Steam</option>
+                </select>
+            </label>
+            <label>Buy Price: <input type="number" id="buy" step="0.01" min="0" required></label>
+            <span id="sell-price-field">
+        <label>Sell Price: <input type="number" id="sell" step="0.01" min="0"></label>
+      </span>
+            <button type="submit">Add</button>
+        </div>
+    </form>
+</div>
+<div class="main-row">
+    <div class="table-block">
+        <h3>Steam → External</h3>
+        <table id="table-steam2out">
+            <thead>
+            <tr>
+                <th>Skin</th>
+                <th>Image</th>
+                <th>Stickers</th>
+                <th>Float</th>
+                <th>Buy</th>
+                <th>Buy Date</th>
+                <th>Quantity</th>
+                <th>Sell</th>
+                <th>Sell Date</th>
+                <th>Profit</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <div class="table-block">
+        <h3>External → Steam</h3>
+        <table id="table-out2steam">
+            <thead>
+            <tr>
+                <th>Skin</th>
+                <th>Image</th>
+                <th>Stickers</th>
+                <th>Float</th>
+                <th>Buy</th>
+                <th>Buy Date</th>
+                <th>Quantity</th>
+                <th>Sell</th>
+                <th>Sell Date</th>
+                <th>Profit</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+<div id="edit-modal"></div>
+<script>
+    let skins = [];
+    let trades = [];
+    let editingTradeId = null;
+
+    function fetchSkins() {
+      return fetch('data/skins.json')
+        .then(res => res.json())
+        .then(data => { skins = data; return data; });
+    }
+    function fillSkinList() {
+      const datalist = document.getElementById('skin-list');
+      datalist.innerHTML = '';
+      skins.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.market_hash_name;
+        datalist.appendChild(opt);
+      });
+    }
+    function getSkinByName(name) {
+      return skins.find(s => s.market_hash_name === name);
+    }
+    function renderStickers(stickers) {
+      if (!stickers || !Array.isArray(stickers)) return '';
+      return stickers
+        .filter(s => !!s)
+        .map(s => {
+          const skin = getSkinByName(s);
+          if (skin && skin.icon_url)
+            return `<img class="sticker" src="https://steamcommunity-a.akamaihd.net/economy/image/${skin.icon_url}/300fx300f" title="${s}">`;
+          return `<span>${s}</span>`;
+        }).join('');
+    }
+function renderTable(direction, tableId) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  tbody.innerHTML = '';
+  trades
+    .filter(t => t.direction === direction)
+    .forEach(trade => {
+      const skin = getSkinByName(trade.marketHashName) || {};
+      const img = skin.icon_url
+        ? `<img class="skin" src="https://steamcommunity-a.akamaihd.net/economy/image/${skin.icon_url}/300fx300f" alt="">`
+        : '';
+
+      const profit = trade.sellPrice && trade.buyPrice
+        ? (Number(trade.sellPrice) - Number(trade.buyPrice)) * (Number(trade.quantity) || 1)
+        : null;
+
+      let profitCell = `<td>–</td>`;
+      if (profit !== null && !isNaN(profit)) {
+        const profitClass = profit >= 0 ? 'profit-pos' : 'profit-neg';
+        const profitSign = profit >= 0 ? '+' : '';
+        profitCell = `<td class="${profitClass}">${profitSign}${profit.toFixed(2)}</td>`;
+      }
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${trade.marketHashName}</td>
+          <td>${img}</td>
+          <td>${renderStickers(trade.stickers)}</td>
+          <td>${trade.float ?? ''}</td>
+          <td>${trade.buyPrice}</td>
+          <td class="date-cell">${trade.buyDate || ''}</td>
+          <td>${trade.quantity || 1}</td>
+          <td>${trade.sellPrice !== undefined ? trade.sellPrice : ''}</td>
+          <td class="date-cell">${trade.sellDate || ''}</td>
+          ${profitCell}
+          <td><button class="edit-btn" onclick="editTrade(${trade.id})">✎</button></td>
+        </tr>`;
+    });
+    }
+    function calcTotalProfit() {
+      let sum = 0;
+      trades.forEach(trade => {
+        if (trade.sellPrice && trade.buyPrice && trade.quantity)
+          sum += (Number(trade.sellPrice) - Number(trade.buyPrice)) * (Number(trade.quantity)||1);
+      });
+      document.getElementById('total-profit').innerHTML = (sum > 0 ? '+' : '') + sum.toFixed(2);
+    }
+    function renderAll() {
+      renderTable('Steam > External', 'table-steam2out');
+      renderTable('External > Steam', 'table-out2steam');
+      calcTotalProfit();
+    }
+    function fetchTrades() {
+      return fetch('http://localhost:8070/api/trades')
+        .then(res => res.json())
+        .then(data => {
+          trades = data;
+          renderAll();
+        });
+    }
+    document.getElementById('trade-form').onsubmit = function(e) {
+      e.preventDefault();
+      const stickers = Array.from(document.querySelectorAll('#stickers-row input'))
+        .map(input => input.value).filter(x=>x);
+      const trade = {
+        marketHashName: document.getElementById('skin').value,
+        direction: document.getElementById('direction').value,
+        buyPrice: parseFloat(document.getElementById('buy').value),
+        float: parseFloat(document.getElementById('float').value),
+        buyDate: document.getElementById('buy-date').value,
+        sellDate: document.getElementById('sell-date').value,
+        sellPrice: document.getElementById('sell').value ? parseFloat(document.getElementById('sell').value) : undefined,
+        quantity: parseInt(document.getElementById('quantity').value,10),
+        stickers: stickers
+      };
+      fetch('http://localhost:8070/api/trades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(trade)
+      })
+        .then(() => fetchTrades())
+        .then(() => { document.getElementById('trade-form').reset(); });
+    };
+
+  window.editTrade = function(id) {
+    editingTradeId = id;
+    const trade = trades.find(t => t.id === id);
+    if (!trade) return;
+    const modal = document.getElementById('edit-modal');
+    modal.innerHTML = `
+      <form id="edit-form" class="edit-form" style="max-width:800px;margin:48px auto;">
+        <div class="form-row flex" style="flex-wrap:wrap;gap:18px;">
+          <label>Skin:
+            <input id="edit-skin" list="skin-list" class="skin-select" required value="${trade.marketHashName||''}">
+          </label>
+          <label>Float: <input type="number" id="edit-float" step="0.0001" min="0" max="1" required value="${trade.float??''}"></label>
+          <label>Stickers:
+            <div id="edit-stickers-row" class="sticker-row">
+              ${(Array(5).fill(0).map((_,i)=>trade.stickers&&trade.stickers[i]?trade.stickers[i]:'')).map((val,i)=>`<input type="text" list="skin-list" class="sticker-select" name="sticker${i}" placeholder="Sticker ${i+1}" value="${val||''}">`).join('')}
+            </div>
+          </label>
+          <label>Buy Date: <input type="date" id="edit-buy-date" required value="${trade.buyDate||''}"></label>
+          <label>Sell Date: <input type="date" id="edit-sell-date" value="${trade.sellDate||''}"></label>
+          <label>Quantity: <input type="number" id="edit-quantity" step="1" min="1" required value="${trade.quantity||1}"></label>
+          <label>Direction:
+            <select id="edit-direction" required>
+              <option value="Steam > External"${trade.direction==='Steam > External'?' selected':''}>Steam → External</option>
+              <option value="External > Steam"${trade.direction==='External > Steam'?' selected':''}>External → Steam</option>
+            </select>
+          </label>
+          <label>Buy Price: <input type="number" id="edit-buy" step="0.01" min="0" required value="${trade.buyPrice||''}"></label>
+          <label>Sell Price: <input type="number" id="edit-sell" step="0.01" min="0" value="${trade.sellPrice??''}"></label>
+          <button type="submit">Save</button>
+          <button type="button" onclick="closeEdit()" style="background:#eee;">Cancel</button>
+        </div>
+      </form>
+    `;
+    modal.style.display = 'flex';
+
+    document.getElementById('edit-form').onsubmit = function(ev) {
+      ev.preventDefault();
+      const stickers = Array.from(document.querySelectorAll('#edit-stickers-row input'))
+        .map(input => input.value).filter(x=>x);
+      const update = {
+        ...trade,
+        marketHashName: document.getElementById('edit-skin').value,
+        float: parseFloat(document.getElementById('edit-float').value),
+        stickers,
+        buyDate: document.getElementById('edit-buy-date').value,
+        sellDate: document.getElementById('edit-sell-date').value,
+        quantity: parseInt(document.getElementById('edit-quantity').value,10),
+        direction: document.getElementById('edit-direction').value,
+        buyPrice: parseFloat(document.getElementById('edit-buy').value),
+        sellPrice: document.getElementById('edit-sell').value ? parseFloat(document.getElementById('edit-sell').value) : undefined
+      };
+      fetch('http://localhost:8070/api/trades/'+id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(update)
+      }).then(() => { closeEdit(); fetchTrades(); });
+    };
+  };
+    window.closeEdit = function() {
+      document.getElementById('edit-modal').style.display = 'none';
+    };
+    fetchSkins().then(() => {
+      fillSkinList();
+      fetchTrades();
+    });
+</script>
+</body>
+</html>

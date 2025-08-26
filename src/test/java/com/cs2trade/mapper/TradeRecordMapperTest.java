@@ -2,7 +2,6 @@ package com.cs2trade.mapper;
 
 import com.cs2trade.dto.TradeRecordRequest;
 import com.cs2trade.entity.TradeRecordDO;
-import com.cs2trade.mapper.TradeRecordMapper;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

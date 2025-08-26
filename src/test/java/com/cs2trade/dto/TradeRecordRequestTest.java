@@ -1,6 +1,5 @@
 package com.cs2trade.dto;
 
-import com.cs2trade.dto.TradeRecordRequest;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

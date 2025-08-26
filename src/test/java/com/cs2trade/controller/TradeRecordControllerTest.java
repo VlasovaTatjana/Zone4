@@ -1,6 +1,5 @@
 package com.cs2trade.controller;
 
-import com.cs2trade.controller.TradeRecordController;
 import com.cs2trade.dto.TradeRecordRequest;
 import com.cs2trade.entity.TradeRecordDO;
 import com.cs2trade.service.TradeService;

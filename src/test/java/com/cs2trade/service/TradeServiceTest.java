@@ -5,7 +5,6 @@ import com.cs2trade.entity.TradeRecordDO;
 import com.cs2trade.exception.NotFoundException;
 import com.cs2trade.mapper.TradeRecordMapper;
 import com.cs2trade.repository.TradeRecordRepository;
-import com.cs2trade.service.TradeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

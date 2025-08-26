@@ -1,7 +1,5 @@
 package com.cs2trade.exception;
 
-import com.cs2trade.exception.GlobalExceptionHandler;
-import com.cs2trade.exception.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.ObjectError;
